@@ -1,0 +1,60 @@
+import { Disclosure } from "@headlessui/react";
+import { Link, Outlet } from "react-router-dom"; // Import Outlet
+import logo from "./assets/logo.jpg";
+import { useState } from "react";
+
+const navigation = [
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "Video Summarizer", href: "/videoSummarizer" },
+  { name: "Projects", href: "/projects" },
+  { name: "Calendar", href: "/calendar" },
+];
+
+export default function PostLoginLayout() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen">
+      {/* Sidebar */}
+      <div className="w-64 bg-[#FE6059] text-white p-4">
+        <div className="flex items-center mb-10">
+          <img src={logo} alt="Logo" className="h-16 w-16 rounded-lg" />
+          <h2 className="ml-2 text-2xl font-bold">Dashboard</h2>
+        </div>
+        <ul className="space-y-4">
+          {navigation.map((item) => (
+            <li key={item.name}>
+              <Link
+                to={item.href}
+                className="block px-4 py-2 text-lg font-medium rounded-md hover:bg-gray-700"
+              >
+                {item.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 bg-[#FFF8F8] p-8">
+        <Disclosure as="nav" className="bg-[#FFF8F8] text-black mb-6">
+          <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+            <div className="relative flex h-16 items-center justify-center">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-[#FE6059] text-white font-medium rounded-md hover:bg-red-600"
+                >
+                  Logout
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Disclosure>
+
+        {/* Render the child components here */}
+        <Outlet /> {/* ADD THIS LINE */}
+      </div>
+    </div>
+  );
+}
