@@ -1,52 +1,131 @@
 import os
-import pandas as pd
-import re
-import nltk
+import json
+import subprocess
+import pickle
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-import pickle
+import re
+import nltk
 
-nltk.download('stopwords')
-nltk.download('wordnet')
+# Download required NLTK data
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
 
-# Load the dataset (assumes emails.csv is placed in the same directory or update the path)
-df = pd.read_csv('emails.csv')
-df['label'] = df['label'].astype(int)
+# Load the trained model and vectorizer
+current_dir = os.path.dirname(__file__)
+model_path = os.path.join(current_dir, 'model.pkl')
+vectorizer_path = os.path.join(current_dir, 'tfidf.pkl')
+
+try:
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
+    with open(vectorizer_path, 'rb') as f:
+        tfidf = pickle.load(f)
+except Exception as e:
+    print(f"Error loading model files: {str(e)}")
+    raise
 
 def preprocess_text(text):
-    text = re.sub(r'<.*?>|http\S+|[^a-zA-Z\s]', '', text)  # Remove HTML tags, URLs, special characters
+    # Remove HTML tags, URLs, and special characters
+    text = re.sub(r'<.*?>|http\S+|[^a-zA-Z\s]', '', str(text))
+    # Convert to lowercase and tokenize
     tokens = text.lower().split()
+    # Remove stopwords and lemmatize
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stopwords.words('english')]
     return ' '.join(tokens)
 
-df['cleaned_text'] = df['text'].apply(preprocess_text)
+def predict_frustration_custom(text):
+    """Predicts frustration level using the custom trained model"""
+    try:
+        cleaned_text = preprocess_text(text)
+        features = tfidf.transform([cleaned_text])
+        probability = model.predict_proba(features)[0][1]
+        print(f"[Custom Model] Prediction: {probability:.3f}")
+        return float(probability)
+    except Exception as e:
+        print(f"[Custom Model] Error: {str(e)}")
+        return 0.5
 
-X_train, X_val, y_train, y_val = train_test_split(df['cleaned_text'], df['label'], test_size=0.2, random_state=42)
-tfidf = TfidfVectorizer(max_features=1000, ngram_range=(1, 2))
-X_train_tfidf = tfidf.fit_transform(X_train)
-X_val_tfidf = tfidf.transform(X_val)
+def predict_frustration_gemini(text):
+    """Predicts frustration level using the Gemini API"""
+    try:
+        # Get the path to gemini_predict.js
+        gemini_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gemini_predict.js')
+        
+        # Escape the text for command line
+        escaped_text = json.dumps(text)
+        
+        # Call the Node.js script
+        result = subprocess.run(
+            ['node', gemini_script, escaped_text],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode != 0:
+            print(f"[Gemini] Error: {result.stderr}")
+            return 0.5
+            
+        # Parse the response
+        try:
+            output = json.loads(result.stdout)
+            confidence = output.get('confidence')
+            
+            if confidence is None or not isinstance(confidence, (int, float)):
+                print(f"[Gemini] Invalid confidence value: {output}")
+                return 0.5
+                
+            print(f"[Gemini] Prediction: {confidence:.3f}")
+            return float(confidence)
+            
+        except json.JSONDecodeError as e:
+            print(f"[Gemini] JSON parsing error: {e}")
+            print(f"[Gemini] Raw output: {result.stdout}")
+            return 0.5
+            
+    except Exception as e:
+        print(f"[Gemini] Unexpected error: {str(e)}")
+        return 0.5
 
-model = LogisticRegression(class_weight='balanced', max_iter=1000)
-cross_val_scores = cross_val_score(model, X_train_tfidf, y_train, cv=5)
-print(f'Cross-validation scores: {cross_val_scores}')
-print(f'Mean cross-validation score: {cross_val_scores.mean()}')
+def predict_combined_frustration(text, weight_custom=0.6, weight_gemini=0.4):
+    """Combines predictions from both models"""
+    if not text:
+        return 0.0, 0.0, 0.0, False
 
-model.fit(X_train_tfidf, y_train)
-y_pred = model.predict(X_val_tfidf)
-accuracy = accuracy_score(y_val, y_pred)
-precision, recall, f1, _ = precision_recall_fscore_support(y_val, y_pred, average='binary')
-print(f'Accuracy: {accuracy}')
-print(f'Precision: {precision}')
-print(f'Recall: {recall}')
-print(f'F1-score: {f1}')
+    print("\n=== Analysis for text ===")
+    print(f"Text preview: {text[:100]}...")
+    
+    # Get predictions
+    score_custom = predict_frustration_custom(text)
+    score_gemini = predict_frustration_gemini(text)
+    
+    # Calculate combined score
+    final_score = (weight_custom * score_custom) + (weight_gemini * score_gemini)
+    is_frustrated = final_score > 0.5
+    
+    # Log results
+    print("\n=== Results ===")
+    print(f"Custom Model Score: {score_custom:.3f}")
+    print(f"Gemini API Score: {score_gemini:.3f}")
+    print(f"Combined Score: {final_score:.3f}")
+    print(f"Classification: {'Frustrated' if is_frustrated else 'Not Frustrated'}")
+    print("=" * 30 + "\n")
+    
+    return score_custom, score_gemini, final_score, is_frustrated
 
-# Save the trained model and vectorizer
-with open('model.pkl', 'wb') as f:
-    pickle.dump(model, f)
-with open('tfidf.pkl', 'wb') as f:
-    pickle.dump(tfidf, f)
+# Add test function
+def test_prediction():
+    test_texts = [
+        "I am extremely frustrated with your service. This is unacceptable!",
+        "Thank you for your help. Everything works perfectly.",
+        "Still waiting for a response after 3 days. This is ridiculous."
+    ]
+    
+    for i, text in enumerate(test_texts, 1):
+        print(f"\nTest {i}:")
+        predict_combined_frustration(text)
+
+if __name__ == "__main__":
+    test_prediction()

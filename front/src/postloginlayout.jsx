@@ -7,7 +7,6 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Video Summarizer", href: "/videoSummarizer" },
   { name: "InvoiceDataExtractor", href: "/invoiceDataExtractor" },
-  { name: "Calendar", href: "/calendar" },
 ];
 
 export default function PostLoginLayout() {

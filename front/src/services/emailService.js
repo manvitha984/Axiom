@@ -82,31 +82,25 @@ const getEmailContent = async (maxResults = 20) => {
 
 // Get incoming emails (exclude self) and filter only frustrated ones
 export const fetchIncomingEmails = async () => {
-  await initClient();
-  const emails = await getEmailContent(2);
-  console.log("Retrieved emails:", emails);
-  
-  // Remove the filter that excludes your own email:
-  const incomingEmails = emails; 
-  console.log("Incoming emails (filtered):", incomingEmails);
-  
-  // Inline call to your prediction Python server
-  const frustratedEmails = [];
-  for (const email of incomingEmails) {
-    try {
-      const response = await fetch('http://localhost:5000/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: email.body }),
-      });
-      const result = await response.json();
-      if (result.isFrustrated) {
-        frustratedEmails.push(email);
-      }
-    } catch (err) {
-      console.error("Error in predict call:", err);
+  try {
+    console.log("Fetching emails...");
+    const response = await fetch('http://localhost:5000/fetch_predicted_emails');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    
+    const emails = await response.json();
+    console.log("Retrieved emails:", emails);
+    
+    if (!Array.isArray(emails)) {
+      throw new Error("Invalid response format: expected array of emails");
+    }
+    
+    return emails;
+    
+  } catch (error) {
+    console.error("Error fetching emails:", error);
+    throw error;
   }
-  console.log("Frustrated emails after filtering:", frustratedEmails);
-  return frustratedEmails;
 };
