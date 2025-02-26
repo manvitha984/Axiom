@@ -49,6 +49,10 @@ with open('model/tfidf.pkl', 'rb') as f:
     tfidf = pickle.load(f)
 # ... (keep all previous imports and setup code the same)
 
+
+
+
+
 def summarize_with_gemini(text):
     """Generates summary using Gemini API via Node.js script"""
     try:
@@ -336,6 +340,37 @@ def generate_summary_pdf(summary_text):
         logger.error(f"Error generating summary PDF: {e}")
         raise
 
+
+@app.route('/api/gemini-chat', methods=['POST'])
+def gemini_chat():
+    data = request.get_json()
+    message = data.get('message', '')
+
+    if not message:
+        return jsonify({'reply': 'No message provided'}), 400
+
+    try:
+        script_path = Path(__file__).parent / 'gemini_chatbot.js'
+        if not script_path.exists():
+            return jsonify({'reply': 'Gemini script not found'}), 500
+
+        result = subprocess.check_output(
+            ["node", str(script_path), message],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            timeout=30
+        )
+
+        reply = result.strip()
+        return jsonify({'reply': reply})
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'reply': 'Gemini API call timed out'}), 500
+    except subprocess.CalledProcessError as e:
+        return jsonify({'reply': f'Error calling gemini_chatbot.js: {e.output}'}), 500
+    except Exception as e:
+        return jsonify({'reply': f'Unexpected error: {str(e)}'}), 500
+    
 @app.route("/videosummarizer", methods=["POST"])
 @cross_origin()
 def video_summarizer():

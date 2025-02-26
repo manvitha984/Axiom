@@ -1,23 +1,22 @@
 import { Disclosure } from "@headlessui/react";
-import { Link, Outlet } from "react-router-dom"; // Import Outlet
-import logo from "./assets/logo.jpg";
+import { Link, Outlet } from "react-router-dom";
 import { useState } from "react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Video Summarizer", href: "/videoSummarizer" },
   { name: "InvoiceDataExtractor", href: "/invoiceDataExtractor" },
+  { name: "ChatBot", href: "/chatBox" }
 ];
 
 export default function PostLoginLayout() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-64 bg-[#FE6059] text-white p-4">
+    <div className="flex">
+      {/* Fixed Sidebar */}
+      <div className="fixed top-0 left-0 h-screen w-64 bg-[#FE6059] text-white p-4">
         <div className="flex items-center mb-10">
-          <img src={logo} alt="Logo" className="h-16 w-16 rounded-lg" />
           <h2 className="ml-2 text-2xl font-bold">Dashboard</h2>
         </div>
         <ul className="space-y-4">
@@ -35,7 +34,7 @@ export default function PostLoginLayout() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 bg-[#FFF8F8] p-8">
+      <div className="ml-64 flex-1 bg-[#FFF8F8] p-8">
         <Disclosure as="nav" className="bg-[#FFF8F8] text-black mb-6">
           <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
             <div className="relative flex h-16 items-center justify-center">
@@ -51,8 +50,8 @@ export default function PostLoginLayout() {
           </div>
         </Disclosure>
 
-        {/* Render the child components here */}
-        <Outlet /> {/* ADD THIS LINE */}
+        {/* Render child components */}
+        <Outlet />
       </div>
     </div>
   );

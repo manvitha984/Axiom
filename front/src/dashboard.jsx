@@ -24,10 +24,6 @@ export default function Dashboard() {
         fetchEmails();
     }, []);
 
-    const formatScore = (score) => {
-        return typeof score === 'number' ? `${(score * 100).toFixed(1)}%` : 'N/A';
-    };
-
     return (
         <div className="min-h-screen bg-[#FFF8F8] p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-6">Email Analysis</h1>
@@ -44,20 +40,11 @@ export default function Dashboard() {
                         <div className="mb-4">
                             <p className="text-gray-700">{email.body}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className={`p-4 rounded-lg ${email.is_frustrated ? 'bg-red-100' : 'bg-green-100'}`}>
                             <h3 className="font-semibold mb-2">Frustration Analysis</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p>Custom Model: {formatScore(email.score_custom)}</p>
-                                    <p>Gemini API: {formatScore(email.score_gemini)}</p>
-                                    <p>Combined Score: {formatScore(email.combined_score)}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className={`font-bold ${email.is_frustrated ? 'text-red-600' : 'text-green-600'}`}>
-                                        {email.is_frustrated ? 'Frustrated' : 'Not Frustrated'}
-                                    </p>
-                                </div>
-                            </div>
+                            <p className={`text-lg font-bold ${email.is_frustrated ? 'text-red-600' : 'text-green-600'}`}>
+                                {email.is_frustrated ? 'Frustrated' : 'Not Frustrated'}
+                            </p>
                         </div>
                     </div>
                 ))}

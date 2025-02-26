@@ -12,6 +12,7 @@ import Tasks from "./taskpage";
 import PostLoginLayout from "./postloginlayout";
 import VideoSummarizer from "./videoSummarizer";
 import InvoiceDataExtractor from "./invoiceDataExtractor"; // New component
+import ChatBot from "./chatBox";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/videosummarizer" element={<VideoSummarizer />} />
           <Route path="/invoiceDataExtractor" element={<InvoiceDataExtractor />} /> {/* New route */}
+          <Route path="/chatBox" element={<ChatBot/>} />
         </Route>
       </Routes>
     </Router>
