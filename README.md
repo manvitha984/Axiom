@@ -64,18 +64,6 @@ This project automates various business processes using AI, reducing manual effo
 
 ### Setup
 ```sh
-# Clone the repository
-git clone https://github.com/your-repo.git
-cd your-repo
-
-# Install dependencies
-npm install
-
-# Run the server
-node server.js
-```
-
-
 ### Clone the repository
 git clone https://github.com/your-repo.git
 cd your-repo
@@ -93,6 +81,10 @@ cd ../backend
 npm install
 ### Run the backend server
 python server.py
+```
+
+
+
 
 ### Add necessary credentials  
 ### 1. credentials.json - Add the required details  
