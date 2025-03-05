@@ -29,6 +29,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import librosa
 from PyPDF2 import PdfReader
+# Add this near your other imports
+from googletrans import Translator
 
 try:
     import whisper
@@ -187,7 +189,39 @@ def predict():
     prediction = model.predict(features)[0]
     return jsonify({"isFrustrated": bool(prediction)})
 
-
+@app.route('/translate_summary', methods=['POST'])
+@cross_origin()
+def translate_summary():
+    try:
+        data = request.get_json()
+        original_text = data.get('text', '')
+        target_language = data.get('language', 'en')
+        
+        if not original_text:
+            return jsonify({"error": "No text provided"}), 400
+            
+        # Initialize translator
+        translator = Translator()
+        
+        # Translate text
+        translation = translator.translate(original_text, dest=target_language)
+        translated_text = translation.text
+        
+        # Generate PDF with translated content
+        pdf_path = generate_summary_pdf(translated_text, f"Video Summary ({target_language.upper()})")
+        
+        # Return the translated PDF
+        return send_file(
+            pdf_path,
+            as_attachment=True,
+            download_name=f"video_summary_{target_language}.pdf",
+            mimetype="application/pdf"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error translating summary: {str(e)}")
+        return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+    
 # ---------------------------
 # Video Summarizer Feature
 # ---------------------------
@@ -318,10 +352,10 @@ def read_pdf_content(pdf_path):
         raise
 
 
-def generate_summary_pdf(summary_text):
+def generate_summary_pdf(summary_text, title="Video Summary"):
     """Generate a PDF file containing the summary"""
     try:
-        pdf_path = os.path.join(tempfile.gettempdir(), "video_summary.pdf")
+        pdf_path = os.path.join(tempfile.gettempdir(), f"video_summary_{hash(summary_text)}.pdf")
         doc = SimpleDocTemplate(
             pdf_path,
             pagesize=letter,
@@ -343,7 +377,7 @@ def generate_summary_pdf(summary_text):
         )
 
         story = [
-            Paragraph("Video Summary", title_style),
+            Paragraph(title, title_style),
             Spacer(1, 0.5 * inch),
             Paragraph(summary_text, normal_style)
         ]
@@ -353,7 +387,6 @@ def generate_summary_pdf(summary_text):
     except Exception as e:
         logger.error(f"Error generating summary PDF: {e}")
         raise
-
 
 @app.route('/api/gemini-chat', methods=['POST'])
 def gemini_chat():
@@ -385,7 +418,53 @@ def gemini_chat():
     except Exception as e:
         return jsonify({'reply': f'Unexpected error: {str(e)}'}), 500
 
-
+@app.route('/extract_summary_text', methods=['POST'])
+@cross_origin()
+def extract_summary_text():
+    """Extract text from the last generated summary"""
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+            
+        # Process the video but only return the extracted text
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+            
+        if not allowed_file(file.filename):
+            return jsonify({"error": f"Invalid file type. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
+            
+        filename = secure_filename(file.filename)
+        uploaded_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        logger.debug(f"Saving file to: {uploaded_path}")
+        file.save(uploaded_path)
+        
+        try:
+            # Process the video
+            audio_path = extract_audio(uploaded_path)
+            transcription = transcribe_audio_whisper(audio_path)
+            pdf_path = generate_pdf_transcription(transcription)
+            pdf_text = read_pdf_content(pdf_path)
+            summary_text = summarize_video_with_gemini(pdf_text)
+            
+            # Clean up temporary files
+            for temp_file in [uploaded_path, audio_path, pdf_path]:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except Exception as cleanup_e:
+                    logger.error(f"Error cleaning up file {temp_file}: {cleanup_e}")
+            
+            return jsonify({"text": summary_text})
+            
+        except Exception as process_e:
+            logger.error(f"Error processing video: {str(process_e)}")
+            return jsonify({"error": f"Failed to generate summary: {str(process_e)}"}), 500
+    except Exception as e:
+        logger.error(f"Error processing request: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+    
 @app.route("/videosummarizer", methods=["POST"])
 @cross_origin()
 def video_summarizer():
