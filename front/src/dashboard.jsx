@@ -32,8 +32,8 @@ export default function Dashboard() {
             {loading && <div>Loading...</div>}
             {error && <div className="text-red-500">{error}</div>}
             {frustrationSummary && (
-                <div className="mb-6">
-                    <h2 className="text-xl font-semibold">Frustration Summary</h2>
+                <div className="mb-6 p-6 bg-white rounded-lg shadow-lg border-l-4 border-red-500">
+                    <h2 className="text-xl font-semibold text-gray-900">Frustration Summary</h2>
                     <p className="text-gray-700">{frustrationSummary}</p>
                 </div>
             )}
@@ -49,7 +49,7 @@ export default function Dashboard() {
                             <p className="text-gray-700">{email.body}</p>
                         </div>
                         <div className={`p-4 rounded-lg ${email.is_frustrated ? 'bg-red-100' : 'bg-green-100'}`}>
-                            <h3 className="font-semibold mb-2">Frustration Analysis</h3>
+                            <h3 className="font-semibold">Frustration Analysis</h3>
                             <p className={`text-lg font-bold ${email.is_frustrated ? 'text-red-600' : 'text-green-600'}`}>
                                 {email.is_frustrated ? 'Frustrated' : 'Not Frustrated'}
                             </p>
