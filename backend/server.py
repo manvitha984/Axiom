@@ -31,6 +31,7 @@ import librosa
 from PyPDF2 import PdfReader
 # Add this near your other imports
 from googletrans import Translator
+from email_processor import fetch_and_classify_emails
 
 try:
     import whisper
@@ -48,146 +49,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 # Enable CORS for all routes and allow all origins
 CORS(app, resources={r"/*": {"origins": "*"}})
-
-# Predict endpoint (Frustrated Email Predictor)
-with open('model/model.pkl', 'rb') as f:
-    model = pickle.load(f)
-with open('model/tfidf.pkl', 'rb') as f:
-    tfidf = pickle.load(f)
-# ... (keep all previous imports and setup code the same)
-
-
-def summarize_emails_with_gemini(text):
-    """Generates summary using Gemini API via Node.js script"""
-    try:
-        script_path = Path(__file__).parent / 'gemini_email_summarize.js'
-        if not script_path.exists():
-            logger.error(f"gemini_email_summarize.js not found at {script_path}")
-            return "Summary generation failed - missing script"
-
-        # Escape text for command line
-        escaped_text = json.dumps(text)
-
-        # Call Node.js script with the text
-        result = subprocess.check_output(
-            ["node", str(script_path), escaped_text],
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            timeout=60  # Longer timeout for summarization
-        )
-
-        # Parse the JSON response
-        try:
-            response = json.loads(result)
-            if 'error' in response:
-                logger.error(f"Gemini summary error: {response['error']}")
-                return f"Summary error: {response['error']}"
-            return response.get('summary', 'No summary generated')
-        except json.JSONDecodeError:
-            logger.error(f"Invalid JSON response: {result}")
-            return "Summary error: Invalid API response"
-
-    except subprocess.TimeoutExpired:
-        logger.error("Gemini summary API call timed out")
-        return "Summary generation timed out"
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error calling gemini_email_summarize.js: {e.output}")
-        return f"Summary failed: {e.output}"
-    except Exception as e:
-        logger.error(f"Unexpected error in Gemini summary: {str(e)}")
-        return f"Summary error: {str(e)}"
-
-
-# ... (keep all other existing code the same)
-def predict_frustration_custom(text):
-    """Predicts frustration using the custom ML model"""
-    try:
-        cleaned_text = preprocess_text(text)
-        features = tfidf.transform([cleaned_text])
-        probability = model.predict_proba(features)[0][1]
-        logger.debug(f"Custom model prediction: {probability:.3f}")
-        return float(probability)
-    except Exception as e:
-        logger.error(f"Custom model error: {str(e)}")
-        return 0.5
-
-
-def predict_frustration_gemini(text):
-    """Predicts frustration using the Gemini API via Node.js script"""
-    try:
-        # Get path to gemini_predict.js
-        script_path = Path(__file__).parent / 'gemini_predict.js'
-        if not script_path.exists():
-            logger.error(f"gemini_predict.js not found at {script_path}")
-            return 0.5
-
-        # Escape text for command line
-        escaped_text = json.dumps(text)
-
-        # Call Node.js script with the text
-        result = subprocess.check_output(
-            ["node", str(script_path), escaped_text],
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            timeout=30
-        )
-        logger.debug(f"Raw Gemini output: {result}")
-
-        # Clean up the output and extract first valid JSON line
-        clean_response = re.sub(r'```json\s*|\s*```', '', result).strip()  # remove markdown code blocks
-        logger.debug(f"Cleaned response: {clean_response}")
-
-        parsed = None
-        # Split into lines and try to parse each until one succeeds
-        for line in clean_response.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                parsed = json.loads(line)
-                break
-            except json.JSONDecodeError as e:
-                logger.debug(f"Skipping invalid JSON line: {line}")
-                continue
-        if parsed is None:
-            logger.error("No valid JSON found in Gemini response")
-            return 0.5
-
-        confidence = parsed.get("confidence", 0.5)
-        logger.debug(f"Parsed confidence: {confidence}")
-        return float(confidence)
-
-    except subprocess.TimeoutExpired:
-        logger.error("Gemini API call timed out")
-        return 0.5
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error calling gemini_predict.js: {e.output}")
-        return 0.5
-    except json.JSONDecodeError as e:
-        logger.error(f"Error parsing Gemini response: {e}")
-        return 0.5
-    except Exception as e:
-        logger.error(f"Unexpected error in Gemini prediction: {str(e)}")
-        return 0.5
-
-
-def preprocess_text(text):
-    text = re.sub(r'<.*?>|http\S+|[^a-zA-Z\s]', '', text)
-    tokens = text.lower().split()
-    lemmatizer = WordNetLemmatizer()
-    tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stopwords.words('english')]
-    return ' '.join(tokens)
-
-
-@app.route('/predict', methods=['POST'])
-@cross_origin()
-def predict():
-    data = request.get_json()
-    text = data.get("text", "")
-    cleaned_text = preprocess_text(text)
-    features = tfidf.transform([cleaned_text])
-    prediction = model.predict(features)[0]
-    return jsonify({"isFrustrated": bool(prediction)})
 
 @app.route('/translate_summary', methods=['POST'])
 @cross_origin()
@@ -222,6 +83,7 @@ def translate_summary():
         logger.error(f"Error translating summary: {str(e)}")
         return jsonify({"error": f"Translation failed: {str(e)}"}), 500
     
+
 # ---------------------------
 # Video Summarizer Feature
 # ---------------------------
@@ -526,29 +388,6 @@ def video_summarizer():
         return jsonify({"error": str(e)}), 500
 
 
-# Add this new route after your existing routes
-
-def summarize_frustration_reasons(emails):
-    """
-    Analyzes a list of emails and generates a summary of the reasons for frustration using Gemini.
-    """
-    frustrated_emails = [email['body'] for email in emails if email['is_frustrated']]
-
-    if not frustrated_emails:
-        return "No frustrated emails found."
-
-    # Combine all frustrated email bodies into a single text
-    combined_text = "\n".join(frustrated_emails)
-
-    # Limit the input text to a maximum length to avoid exceeding Gemini's token limit
-    max_length = 10000  # Adjust as needed
-    if len(combined_text) > max_length:
-        combined_text = combined_text[:max_length]
-        logger.warning(f"Truncated combined text to {max_length} characters.")
-
-    # Get summary from Gemini
-    summary = summarize_emails_with_gemini(combined_text)
-    return summary
 
 
 def summarize_video_with_gemini(text):
@@ -596,61 +435,15 @@ def summarize_video_with_gemini(text):
 @cross_origin()
 def fetch_predicted_emails():
     try:
-        service = get_gmail_service()
-        results = service.users().messages().list(userId='me', q='is:unread', maxResults=2).execute()
-        messages = results.get('messages', [])
-
-        processed_emails = []
-        for msg in messages:
-            msg_data = service.users().messages().get(userId='me', id=msg['id']).execute()
-
-            # Extract email metadata
-            headers = msg_data.get('payload', {}).get('headers', [])
-            subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
-            from_email = next((h['value'] for h in headers if h['name'] == 'From'), '')
-            date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
-
-            # Extract email body
-            body = ''
-            if 'parts' in msg_data.get('payload', {}):
-                for part in msg_data['payload']['parts']:
-                    if part['mimeType'] == 'text/plain':
-                        body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
-            else:
-                body_data = msg_data['payload']['body'].get('data', '')
-                if body_data:
-                    body = base64.urlsafe_b64decode(body_data).decode('utf-8')
-
-            # Get predictions
-            score_custom = predict_frustration_custom(body)
-            score_gemini = predict_frustration_gemini(body)
-            final_score = (0.6 * score_custom) + (0.4 * score_gemini)
-
-            email_data = {
-                'id': msg['id'],
-                'from': from_email,
-                'subject': subject,
-                'date': date,
-                'body': body,
-                'score_custom': float(score_custom),
-                'score_gemini': float(score_gemini),
-                'combined_score': float(final_score),
-                'is_frustrated': final_score > 0.5
-            }
-            processed_emails.append(email_data)
-
-        # Generate frustration summary
-        frustration_summary = summarize_frustration_reasons(processed_emails)
-
+        emails, frustration_summary = fetch_and_classify_emails()
         return jsonify({
-            'emails': processed_emails,
+            'emails': emails,
             'frustration_summary': frustration_summary
         })
     except Exception as e:
         logger.error(f"Error processing emails: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
+    
 # ---------------------------
 # Invoice Data Extraction Feature
 # ---------------------------
@@ -733,62 +526,6 @@ def fetch_pdfs_from_invoices():
                         pdf_paths.append(local_path)
     return pdf_paths, subjects
 
-
-@app.route('/analyze_email', methods=['POST'])
-@cross_origin()
-def analyze_email():
-    try:
-        data = request.json
-        text = data.get('text', '')
-        if not text:
-            return jsonify({'error': 'No text provided'}), 400
-
-        # Add rate limiting delay
-        time.sleep(1)  # 1 second delay between requests
-
-        # Get custom model prediction
-        score_custom = predict_frustration_custom(text)
-        logger.debug(f"Custom model score: {score_custom}")
-
-        # Get Gemini prediction with retry
-        max_retries = 2
-        score_gemini = 0.5
-        for attempt in range(max_retries):
-            try:
-                script_path = os.path.join(os.path.dirname(__file__), 'gemini_predict.js')
-                result = subprocess.check_output(
-                    ["node", str(script_path), json.dumps(text)],
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    timeout=30
-                )
-                gemini_result = json.loads(result)
-                score_gemini = float(gemini_result.get("confidence", 0.5))
-                break
-            except Exception as e:
-                logger.error(f"Gemini API attempt {attempt + 1} failed: {str(e)}")
-                if attempt < max_retries - 1:
-                    time.sleep(2)  # Wait before retry
-
-        # Calculate combined score
-        combined_score = (0.6 * score_custom) + (0.4 * score_gemini)
-
-        return jsonify({
-            'score_custom': float(score_custom),
-            'score_gemini': float(score_gemini),
-            'combined_score': float(combined_score),
-            'is_frustrated': combined_score > 0.5
-        })
-
-    except Exception as e:
-        logger.error(f"Error in analyze_email: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'score_custom': 0.5,
-            'score_gemini': 0.5,
-            'combined_score': 0.5,
-            'is_frustrated': False
-        }), 500
 
 
 @app.route('/extract_invoice_data', methods=['POST'])
