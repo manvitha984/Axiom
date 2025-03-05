@@ -79,28 +79,31 @@ const getEmailContent = async (maxResults = 20) => {
     return [];
   }
 };
-
-// Get incoming emails (exclude self) and filter only frustrated ones
 export const fetchIncomingEmails = async () => {
   try {
-    console.log("Fetching emails...");
-    const response = await fetch('http://localhost:5000/fetch_predicted_emails');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const emails = await response.json();
-    console.log("Retrieved emails:", emails);
-    
-    if (!Array.isArray(emails)) {
-      throw new Error("Invalid response format: expected array of emails");
-    }
-    
-    return emails;
-    
+      console.log("Fetching emails...");
+      // Ensure initialization happens only once.
+      await initClient();
+      const response = await fetch('http://localhost:5000/fetch_predicted_emails');
+
+      if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Retrieved emails:", data.emails);
+
+      if (!Array.isArray(data.emails)) {
+          throw new Error("Invalid response format: expected array of emails");
+      }
+
+      return {
+          emails: data.emails,
+          frustrationSummary: data.frustration_summary
+      };
+
   } catch (error) {
-    console.error("Error fetching emails:", error);
-    throw error;
+      console.error("Error fetching emails:", error);
+      throw error;
   }
 };

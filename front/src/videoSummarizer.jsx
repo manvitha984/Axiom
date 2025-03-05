@@ -27,6 +27,7 @@ export default function VideoSummarizer() {
         const response = await fetch("http://localhost:5000/videosummarizer", {
             method: "POST",
             body: formData,
+            timeout:60000
           });
       if (!response.ok) {
         throw new Error("Failed to generate summary. " + response.statusText);

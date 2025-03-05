@@ -5,17 +5,19 @@ export default function Dashboard() {
     const [incomingEmails, setIncomingEmails] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [frustrationSummary, setFrustrationSummary] = useState("");
 
     useEffect(() => {
         const fetchEmails = async () => {
             try {
                 setLoading(true);
-                const emails = await fetchIncomingEmails();
-                setIncomingEmails(emails);
+                const data = await fetchIncomingEmails();
+                setIncomingEmails(data.emails);
+                setFrustrationSummary(data.frustrationSummary);
                 setError(null);
             } catch (err) {
-                setError("Failed to fetch emails.");
-                console.error("Failed to fetch emails:", err);
+                setError("Failed to fetch emails. Please try again.");
+                console.error("Fetch error:", err);
             } finally {
                 setLoading(false);
             }
@@ -29,6 +31,12 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-gray-900 mb-6">Email Analysis</h1>
             {loading && <div>Loading...</div>}
             {error && <div className="text-red-500">{error}</div>}
+            {frustrationSummary && (
+                <div className="mb-6">
+                    <h2 className="text-xl font-semibold">Frustration Summary</h2>
+                    <p className="text-gray-700">{frustrationSummary}</p>
+                </div>
+            )}
             <div className="space-y-4">
                 {incomingEmails.map((email, index) => (
                     <div key={index} className="bg-white rounded-lg shadow p-6">
