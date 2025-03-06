@@ -1,6 +1,11 @@
 import { Disclosure } from "@headlessui/react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useState } from "react";
+const handleLogout = () => {
+  localStorage.removeItem('emails');
+  localStorage.removeItem('frustrationSummary');
+  // Add any other localStorage items you want to clear
+};
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
@@ -45,6 +50,7 @@ export default function PostLoginLayout() {
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                 <Link
                   to="/login"
+                  onClick={handleLogout}
                   className="px-4 py-2 bg-[#FE6059] text-white font-medium rounded-md hover:bg-red-600"
                 >
                   Logout
@@ -60,3 +66,4 @@ export default function PostLoginLayout() {
     </div>
   );
 }
+
