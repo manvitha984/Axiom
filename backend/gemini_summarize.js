@@ -19,9 +19,18 @@ const {
   
   async function generateSummary(text) {
     try {
-      const prompt = `Please summarize this video transcription in a clear, structured format.
-      Focus on key points and main ideas. Keep it under 500 words.
-      
+      const prompt = `Extract the key points from this video transcription.
+      Format your response as numbered points:
+      1. Point one
+      2. Point two
+
+      Requirements:
+      - Each point should be 1-2 lines maximum
+      - Include only the most important information
+      - No bullet points or special characters
+      - Maximum 10-15 points
+      - No explanatory text or transitions
+
       Transcription:
       ${text}`;
   
