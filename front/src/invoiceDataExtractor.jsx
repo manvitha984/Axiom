@@ -115,18 +115,18 @@ export default function InvoiceDataExtractor() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#FFF8F8] py-0 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FE6059] to-rose-500 sm:text-3xl">
             Invoice Data Extractor
           </h1>
-          <p className="mt-3 text-xl text-gray-500 sm:mt-4">
+          <p className="mt-3 text-lg text-gray-600">
             Upload PDFs or extract data from emails
           </p>
         </div>
 
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="bg-white shadow-lg rounded-xl p-6 mb-6 border border-[#FE6059]/10">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div
               onDragOver={handleDragOver}
@@ -134,8 +134,8 @@ export default function InvoiceDataExtractor() {
               onDrop={handleDrop}
               className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-lg ${
                 isDragging
-                  ? 'border-indigo-600 bg-indigo-50'
-                  : 'border-gray-300 hover:border-gray-400'
+                  ? 'border-[#FE6059] bg-[#FE6059]/5'
+                  : 'border-gray-300 hover:border-[#FE6059]/50'
               }`}
             >
               <div className="space-y-1 text-center">
@@ -154,7 +154,7 @@ export default function InvoiceDataExtractor() {
                   />
                 </svg>
                 <div className="flex text-sm text-gray-600">
-                  <label className="relative cursor-pointer rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                  <label className="relative cursor-pointer rounded-md font-medium text-[#FE6059] hover:text-[#FE6059]/80">
                     <span>Upload a file</span>
                     <input
                       type="file"
@@ -178,9 +178,11 @@ export default function InvoiceDataExtractor() {
               <button
                 type="submit"
                 disabled={!file || loading}
-                className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                  (!file || loading) && 'opacity-50 cursor-not-allowed'
-                }`}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-md text-white
+                  ${!file || loading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-[#FE6059] hover:bg-[#FE6059]/90 transform hover:-translate-y-0.5'
+                  } transition-all duration-200`}
               >
                 {loading ? (
                   <>
@@ -215,9 +217,11 @@ export default function InvoiceDataExtractor() {
                 type="button"
                 onClick={handleReadEmails}
                 disabled={loading}
-                className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-                  loading && 'opacity-50 cursor-not-allowed'
-                }`}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-md text-white
+                  ${loading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-rose-500 hover:bg-rose-600 transform hover:-translate-y-0.5'
+                  } transition-all duration-200`}
               >
                 {loading ? (
                   <>
@@ -252,11 +256,11 @@ export default function InvoiceDataExtractor() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-red-50 p-4 mb-4">
+          <div className="rounded-xl bg-red-50 p-4 mb-4 border border-red-100 shadow-sm">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg
-                  className="h-5 w-5 text-red-400"
+                  className="h-5 w-5 text-[#FE6059]"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -278,11 +282,11 @@ export default function InvoiceDataExtractor() {
         )}
 
         {success && (
-          <div className="rounded-md bg-green-50 p-4">
+          <div className="rounded-xl bg-green-50 p-4 border border-green-100 shadow-sm">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg
-                  className="h-5 w-5 text-green-400"
+                  className="h-5 w-5 text-green-500"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >

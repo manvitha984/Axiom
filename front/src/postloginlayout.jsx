@@ -1,5 +1,5 @@
 import { Disclosure } from "@headlessui/react";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { useState } from "react";
 
 const navigation = [
@@ -11,6 +11,7 @@ const navigation = [
 
 export default function PostLoginLayout() {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex">
@@ -24,7 +25,11 @@ export default function PostLoginLayout() {
             <li key={item.name}>
               <Link
                 to={item.href}
-                className="block px-4 py-2 text-lg font-medium rounded-md hover:bg-gray-700"
+                className={`block px-4 py-2 text-lg font-medium rounded-md transition-all duration-200 ${
+                  location.pathname === item.href
+                    ? 'bg-white text-[#FE6059] shadow-md'
+                    : 'text-white hover:bg-white/10'
+                }`}
               >
                 {item.name}
               </Link>
@@ -32,7 +37,6 @@ export default function PostLoginLayout() {
           ))}
         </ul>
       </div>
-
       {/* Main Content Area */}
       <div className="ml-64 flex-1 bg-[#FFF8F8] p-8">
         <Disclosure as="nav" className="bg-[#FFF8F8] text-black mb-6">
