@@ -12,11 +12,13 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
+# Create a Blueprint for invoice extractor routes
 invoice_extractor_bp = Blueprint('invoice_extractor_bp', __name__)
 logger = logging.getLogger(__name__)
 
 # Gmail permissions for reading invoice emails
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
 
 def get_gmail_service():
     """
@@ -41,7 +43,7 @@ def get_gmail_service():
     service = build('gmail', 'v1', credentials=creds)
     return service
 
-
+# Extract first and last names from the first page of a PDF
 def extract_first_and_last_names(pdf_path, output_excel_path):
     """
     Reads the first page of the PDF to extract columns:
@@ -56,6 +58,7 @@ def extract_first_and_last_names(pdf_path, output_excel_path):
     filtered_df.to_excel(output_excel_path, index=False)
 
 
+# Fetch PDFs from emails with 'invoice' in the subject
 def fetch_pdfs_from_invoices(app):
     """
     Searches the user's Gmail inbox for recent messages containing
@@ -101,6 +104,7 @@ def fetch_pdfs_from_invoices(app):
     return pdf_paths, subjects
 
 
+# Route to extract invoice data from PDFs
 @invoice_extractor_bp.route('/extract_invoice_data', methods=['POST'])
 @cross_origin()
 def extract_invoice_data():

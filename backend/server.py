@@ -1,7 +1,5 @@
 import os
-import camelot
 import io
-import base64
 import logging
 import subprocess
 import nltk
@@ -9,15 +7,11 @@ from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
-
 from googletrans import Translator
-from nltk.corpus import stopwords
-
 # Email & summarizer imports
 from email_processor import fetch_and_classify_emails
 from video_summarizer import video_summarizer_bp, generate_summary_pdf
 from invoice_extractor import invoice_extractor_bp
-
 nltk.download('stopwords')
 nltk.download('wordnet')
 

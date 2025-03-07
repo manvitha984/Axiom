@@ -1,0 +1,16 @@
+Flask
+Flask-CORS
+Werkzeug
+google-auth-oauthlib
+google-api-python-client
+nltk
+librosa
+soundfile
+openai-whisper
+PyPDF2
+reportlab
+googletrans==4.0.0rc1
+pandas
+numpy
+av
+camelot-py
