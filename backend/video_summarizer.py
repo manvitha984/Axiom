@@ -1,27 +1,26 @@
 import os
-import io
 import tempfile
 import json
 import logging
-import librosa
+import librosa #For audio analysis(used in transcription)
 import subprocess
 import numpy as np
-import soundfile as sf
-import whisper
-import camelot
+import soundfile as sf #for reading and writing audio files
+import whisper #openAI's whisper for audio transcription
 from PyPDF2 import PdfReader
 from pathlib import Path
 from flask import Blueprint, request, jsonify, send_file
-from flask_cors import cross_origin
-from reportlab.lib.pagesizes import letter
+from flask_cors import cross_origin #for cross-origin requests
+from reportlab.lib.pagesizes import letter #for PDF generation
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename #for secure file names
 
+# Set up logging configuration to see debug/info messages in the terminal
 logger = logging.getLogger(__name__)
 
-# Allowed file types
+# Allowed file types for video uploads
 ALLOWED_EXTENSIONS = {"mp4", "avi", "mov", "wmv", "mkv"}
 
 # Create a Blueprint for video summarizer routes
@@ -38,9 +37,12 @@ def extract_audio(video_path):
     """
     import av
     try:
+        # Open the video file using PyAV
         container = av.open(video_path)
         audio_stream = None
+        #Iterate through the streams to find the audio stream
         for stream in container.streams:
+            # Find the first audio stream
             if stream.type == 'audio':
                 audio_stream = stream
                 break
@@ -53,18 +55,24 @@ def extract_audio(video_path):
             raise ValueError("Failed to retrieve sample rate.")
 
         samples = []
+        #Decode the audio frames
         for frame in container.decode(audio=0):
+            #Convert the audio frame to a numpy array
             arr = frame.to_ndarray()
             samples.append(arr)
 
         if not samples:
             raise ValueError("No audio frames could be decoded.")
-
+        
+        #Concatenate the audio frames into a single numpy array
         audio_array = np.concatenate(samples, axis=0)
+        #Reshape the audio array to have the correct number of channels
         audio_array = audio_array.reshape(-1, audio_stream.channels)
 
         temp_dir = tempfile.gettempdir()
+        # Create a temporary audio file path
         audio_path = os.path.join(temp_dir, "temp_audio.wav")
+        # Write the audio array to a .wav file
         sf.write(audio_path, audio_array, sample_rate)
         return audio_path
     except Exception as e:
@@ -73,19 +81,24 @@ def extract_audio(video_path):
 
 def transcribe_audio_whisper(audio_path):
     """
-    Transcribe the audio using OpenAI Whisper.
+    Transcribe the audio using OpenAI's Whisper model.
+    Whisper is a state-of-the-art speech recognition system.
     """
     try:
         logger.debug("Loading audio file...")
+        # Load audio file using librosa
         audio, sr = librosa.load(audio_path, sr=16000, mono=True)
         logger.debug("Preprocessing audio...")
         audio = librosa.util.normalize(audio)
         logger.debug("Loading Whisper model...")
-        model_whisper = whisper.load_model("medium")  # medium model for better accuracy
+         # Load the Whisper model ("medium" for a balance of speed and accuracy)
+        model_whisper = whisper.load_model("medium") 
         logger.debug("Starting transcription...")
+        # Transcribe the audio using Whisper
         result = model_whisper.transcribe(
             audio,
             fp16=False,
+            # Specify the language of the audio (e.g., "en" for English)
             language='en',
             initial_prompt="This is a clear speech recording.",
             word_timestamps=True,
@@ -105,16 +118,20 @@ def transcribe_audio_whisper(audio_path):
     except Exception as e:
         logger.error(f"Transcription failed: {str(e)}")
         raise RuntimeError(f"Transcription failed: {str(e)}")
-
+# Generate a PDF file containing the transcription text
 def generate_pdf_transcription(transcription_text):
     """
     Takes a transcription text and generates a PDF file with the text.
+    Uses ReportLab for PDF generation.
     """
     try:
         pdf_path = os.path.join(tempfile.gettempdir(), "video_transcription.pdf")
+        # # Create a SimpleDocTemplate object with margins and page size
         doc = SimpleDocTemplate(
             pdf_path,
+            # Use letter size for the page
             pagesize=letter,
+            # Set margins for the page
             rightMargin=72,
             leftMargin=72,
             topMargin=72,
@@ -147,13 +164,17 @@ def generate_pdf_transcription(transcription_text):
         logger.error(f"PDF generation error: {e}")
         raise RuntimeError(f"PDF generation error: {e}")
 
+# Read text content from a PDF file
 def read_pdf_content(pdf_path):
     """Reads text content from a PDF file."""
     text = ""
     try:
+        # Open the PDF file in binary mode
         with open(pdf_path, 'rb') as f:
+            # Create a PdfReader object
             reader = PdfReader(f)
             for page in reader.pages:
+                # Extract the text from the page and append it to the text variable
                 text += page.extract_text() or ""
         return text
     except Exception as e:
@@ -161,7 +182,8 @@ def read_pdf_content(pdf_path):
         raise
 
 def generate_summary_pdf(summary_text, title="Video Summary"):
-    """Generate a PDF file containing the summary."""
+    """Generate a PDF file containing the summary.
+    Uses ReportLab to create the PDF document."""
     try:
         pdf_path = os.path.join(tempfile.gettempdir(), f"video_summary_{hash(summary_text)}.pdf")
         doc = SimpleDocTemplate(
@@ -195,10 +217,13 @@ def generate_summary_pdf(summary_text, title="Video Summary"):
     except Exception as e:
         logger.error(f"Error generating summary PDF: {e}")
         raise
-
+# Generate a summary of the video content using the Gemini API
 def summarize_video_with_gemini(text):
-    """Generates a summary using Gemini API via Node.js script."""
+    """  Generates a summary using Gemini API via a Node.js script.
+    This function calls an external Node.js script to interact with the Gemini API.
+    """
     try:
+        #Construct the path to the Node.js script
         script_path = Path(__file__).parent / 'gemini_summarize.js'
         if not script_path.exists():
             logger.error(f"gemini_summarize.js not found at {script_path}")
@@ -231,6 +256,7 @@ def summarize_video_with_gemini(text):
         logger.error(f"Unexpected error in Gemini summary: {str(e)}")
         return f"Summary error: {str(e)}"
 
+# Route for video summarizer
 @video_summarizer_bp.route('/videosummarizer', methods=["POST"])
 @cross_origin()
 def video_summarizer():
@@ -254,15 +280,21 @@ def video_summarizer():
         file.save(uploaded_path)
 
         try:
+            # Extract audio from video
             audio_path = extract_audio(uploaded_path)
+            # Transcribe the audio using Whisper
             transcription = transcribe_audio_whisper(audio_path)
 
+            # Generate a PDF file with the transcription text
             pdf_path = generate_pdf_transcription(transcription)
+            # Read the text content from the PDF
             pdf_text = read_pdf_content(pdf_path)
 
+            # Generate a summary using the Gemini API
             gemini_summary = summarize_video_with_gemini(pdf_text)
             logger.debug(f"Generated summary: {gemini_summary}")
 
+            # Generate a PDF summary file
             summary_pdf_path = generate_summary_pdf(gemini_summary)
 
             # Clean up
@@ -288,6 +320,7 @@ def video_summarizer():
         logger.error(f"Error processing request: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+# Route for extracting text from the last generated summary
 @video_summarizer_bp.route('/extract_summary_text', methods=['POST'])
 @cross_origin()
 def extract_summary_text():

@@ -98,7 +98,7 @@ class FrustrationPredictor:
             print(f"[Gemini] Unexpected error: {str(e)}")
             return 0.5
 
-    def predict_combined_frustration(self, text, weight_custom=0.6, weight_gemini=0.4):
+    def predict_combined_frustration(self, text, weight_custom=0.5, weight_gemini=0.5):
         """
         Combines predictions from the custom model and the Gemini API.
         Returns a tuple: (score_custom, score_gemini, combined_score, is_frustrated)

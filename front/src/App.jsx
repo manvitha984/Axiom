@@ -8,7 +8,6 @@ import Footer from "./footer";
 import LoginPage from "./login";
 import Signup from "./signup";
 import Dashboard from "./dashboard";
-import Tasks from "./taskpage";
 import PostLoginLayout from "./postloginlayout";
 import VideoSummarizer from "./videoSummarizer";
 import InvoiceDataExtractor from "./invoiceDataExtractor"; // New component

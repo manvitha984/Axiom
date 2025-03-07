@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 export default function VideoSummarizer() {
+  // State variables to manage file input, PDF URL, loading state, error messages, summary text, and translation loading state
   const [file, setFile] = useState(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -8,21 +9,21 @@ export default function VideoSummarizer() {
   const [summary, setSummary] = useState('');
   const [translationLoading, setTranslationLoading] = useState(null);
 
-  // Available languages
+  // List of available languages for translation
   const languages = [
     { code: 'en', name: 'English (Original)' },
     { code: 'es', name: 'Spanish' },
     { code: 'fr', name: 'French' },
     { code: 'de', name: 'German' },
   ];
-
+// Handle file change event
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setPdfUrl('');
     setError('');
     setSummary('');
   };
-
+  // Handle form submission to upload video and generate summary
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) {
@@ -32,10 +33,12 @@ export default function VideoSummarizer() {
     setLoading(true);
     setError('');
     setSummary('');
+    // Create a new FormData object and append the selected file
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+      // Send video file to backend for summarization
       const response = await fetch("http://localhost:5000/videosummarizer", {
         method: "POST",
         body: formData,
@@ -73,7 +76,7 @@ export default function VideoSummarizer() {
       setLoading(false);
     }
   };
-
+  // Handle translation download request
   const handleDownloadTranslation = async (language) => {
     if (!summary) {
       setError("No summary text available for translation");

@@ -1,23 +1,27 @@
 import { Disclosure } from "@headlessui/react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { useState } from "react";
+// This function handles logging out by removing local storage items
+// so that user-related data is cleared upon logout.
 const handleLogout = () => {
+  // Removes stored emails and frustration summary
   localStorage.removeItem('emails');
   localStorage.removeItem('frustrationSummary');
-  // Add any other localStorage items you want to clear
 };
-
+// This array defines the navigation links displayed in the sidebar.
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Video Summarizer", href: "/videoSummarizer" },
   { name: "InvoiceDataExtractor", href: "/invoiceDataExtractor" },
   { name: "ChatBot", href: "/chatBox" }
 ];
-
+// This functional component represents the layout used after the user logs in.
+// It includes a sidebar (with navigation links) and a main content area where
+// other routes (children) are rendered via <Outlet/>.
 export default function PostLoginLayout() {
-  const [isOpen, setIsOpen] = useState(false);
+    // Provides access to the current route location (e.g. "/dashboard", etc.)
   const location = useLocation();
-
+ // The main layout is made up of a fixed sidebar (left side) and
+  // a flexible content area (right side).
   return (
     <div className="flex">
       {/* Fixed Sidebar */}
@@ -25,6 +29,7 @@ export default function PostLoginLayout() {
         <div className="flex items-center mb-10">
           <h2 className="ml-2 text-2xl font-bold">Dashboard</h2>
         </div>
+       {/* Navigation Links List */}
         <ul className="space-y-4">
           {navigation.map((item) => (
             <li key={item.name}>
@@ -42,12 +47,13 @@ export default function PostLoginLayout() {
           ))}
         </ul>
       </div>
-      {/* Main Content Area */}
+      {/* Main Content Area (to the right of the sidebar) */}
       <div className="ml-64 flex-1 bg-[#FFF8F8] p-8">
         <Disclosure as="nav" className="bg-[#FFF8F8] text-black mb-6">
           <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
             <div className="relative flex h-16 items-center justify-center">
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+               {/* Logout Link triggers handleLogout and redirects to /login */}
                 <Link
                   to="/login"
                   onClick={handleLogout}
@@ -59,11 +65,8 @@ export default function PostLoginLayout() {
             </div>
           </div>
         </Disclosure>
-
-        {/* Render child components */}
         <Outlet />
       </div>
     </div>
   );
 }
-

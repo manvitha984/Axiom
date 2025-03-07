@@ -3,27 +3,40 @@ import { signup, getUserData } from "./services/authService";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function Signup() {
+  // formData holds the user inputs for name, email, and password
+  // error holds any backend or validation errors
   const [formData, setFormData] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState(null);
+
+  // useNavigate lets us programmatically navigate to other routes (e.g. "/dashboard")
   const navigate = useNavigate();
 
+  // handleChange updates the correct field in formData whenever the user types
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // handleSubmit is triggered when the form is submitted
   const handleSubmit = async (e) => {
+     // Prevent default browser form submission
     e.preventDefault();
+
+   // Attempt to sign up the user using the signup service
     const result = await signup(formData.name, formData.email, formData.password);
-    
+
+  // If signup is successful, fetch user data, then navigate to dashboard
+
     if (result.success) {
-      const userData = await getUserData(); // Fetch user details from backend
-      console.log("User Data:", userData); // Debugging (Remove later)
+       // Fetch user details from the backend
+      const userData = await getUserData();
+      console.log("User Data:", userData);
       navigate("/dashboard");
     } else {
+      // If signup fails, display the error message
       setError(result.message);
     }
   };
-
+  // The signup form includes fields for name, email, and password
   return (
     <div className="min-h-screen bg-[#FFF8F8] flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
@@ -76,6 +89,7 @@ export default function Signup() {
               required
             />
           </div>
+          {/* Display any errors from the backend */}
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           <div>
             <button
@@ -86,6 +100,7 @@ export default function Signup() {
             </button>
           </div>
         </form>
+        {/* Link to go to the login page if the user already exists*/}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Already have an account? {" "}

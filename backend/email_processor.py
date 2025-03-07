@@ -1,31 +1,34 @@
 import os
 import base64
 import json
-import re
+import re #For regular expressions(used for text processing)
 import logging
-import subprocess
+import subprocess #For running external commands(like Node.js scripts)
 from pathlib import Path
-import pickle
+import pickle #For loading the model and vectorizer
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords # For stop words (common words to ignore in text analysis)
+from nltk.stem import WordNetLemmatizer # For stop words (common words to ignore in text analysis)
 
 # Set up logging configuration to see debug/info messages in the terminal
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Load the frustration prediction model and TF-IDF vectorizer
-with open(os.path.join('model', 'model.pkl'), 'rb') as f:
-    model = pickle.load(f)
-with open(os.path.join('model', 'tfidf.pkl'), 'rb') as f:
-    tfidf = pickle.load(f)
+with open(os.path.join('model', 'model.pkl'), 'rb') as f: # Open the model file in binary read mode
+    model = pickle.load(f) # Load the model from the file using pickle
+with open(os.path.join('model', 'tfidf.pkl'), 'rb') as f:  # Open the TF-IDF vectorizer file in binary read mode
+    tfidf = pickle.load(f)  # Load the TF-IDF vectorizer from the file using pickle
 
+ # Define the required Gmail API scope
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+# Gmail API service function
 def get_gmail_service():
     """
     Authenticates with Gmail and returns a Gmail API service object.
+    This function handles the OAuth 2.0 flow to obtain credentials and build the Gmail service.
     """
     token_path = 'token.json'
     creds = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES).run_local_server(port=8081)
@@ -47,17 +50,24 @@ def get_gmail_service():
     service = build('gmail', 'v1', credentials=creds)
     return service
 
+
+# Text preprocessing function
 def preprocess_text(text):
     text = re.sub(r'<.*?>|http\S+|[^a-zA-Z\s]', '', text)
     tokens = text.lower().split()
+    # Lemmatize the tokens and remove stopwords
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stopwords.words('english')]
     return ' '.join(tokens)
 
+
+# Custom model prediction function
 def predict_frustration_custom(text):
     try:
         cleaned_text = preprocess_text(text)
+        # Transform the cleaned text using the TF-IDF vectorizer
         features = tfidf.transform([cleaned_text])
+        # Predict the probability of the text being frustrated
         probability = model.predict_proba(features)[0][1]
         logger.debug(f"Custom model prediction: {probability:.3f}")
         return float(probability)
@@ -65,6 +75,8 @@ def predict_frustration_custom(text):
         logger.error(f"Custom model error: {str(e)}")
         return 0.5
 
+
+# Gemini model prediction function
 def predict_frustration_gemini(text):
     try:
         script_path = Path(__file__).parent / 'gemini_predict.js'
@@ -92,6 +104,8 @@ def predict_frustration_gemini(text):
         logger.error(f"Gemini prediction error: {str(e)}")
         return 0.5
 
+
+# Function to summarize emails using the Gemini API
 def summarize_emails_with_gemini(text):
     try:
         script_path = Path(__file__).parent / 'gemini_email_summarize.js'
@@ -118,6 +132,7 @@ def summarize_emails_with_gemini(text):
         logger.error(f"Error in summarize_emails_with_gemini: {str(e)}")
         return f"Summary error: {str(e)}"
 
+# Function to summarize frustration reasons
 def summarize_frustration_reasons(emails):
     """
     Given a list of email dictionaries, generate a summary of the reasons for frustration.
@@ -134,6 +149,8 @@ def summarize_frustration_reasons(emails):
     summary = summarize_emails_with_gemini(combined_text)
     return summary
 
+
+# Function to fetch and classify emails
 def fetch_and_classify_emails():
     """
     Retrieves unread emails, classifies each as frustrated or not using both custom and Gemini predictions,
@@ -164,7 +181,7 @@ def fetch_and_classify_emails():
 
         score_custom = predict_frustration_custom(body)
         score_gemini = predict_frustration_gemini(body)
-        final_score = (0.6 * score_custom) + (0.4 * score_gemini)
+        final_score = (0.5 * score_custom) + (0.5 * score_gemini)
 
         # Log the scores for each email in the terminal
         logger.info(f"Email ID {msg['id']} - Custom Score: {score_custom:.3f}, Gemini Score: {score_gemini:.3f}, Combined Score: {final_score:.3f}")

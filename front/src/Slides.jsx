@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-
+/**
+ * This component presents a slide-based UI element that displays different
+ * text headings and contents, automatically cycling through them via an interval.
+ */
 export default function SlidesSection() {
+  // State to keep track of the current slide index
   const [currentSlide, setCurrentSlide] = useState(0);
-
+// Array of slides with headings and content
   const slides = [
     {
       heading: "AI-Powered Email Analysis for Customer Insights",
@@ -20,7 +24,11 @@ export default function SlidesSection() {
         "Handling large volumes of documents—contracts, invoices, reports, or scanned paperwork—can be tedious and error-prone. Our intelligent document processing system leverages OCR (Optical Character Recognition) and AI-driven text extraction to convert unstructured data into actionable insights. It can automatically classify documents, extract important fields such as dates, signatures, and financial data, and integrate seamlessly with enterprise resource planning (ERP) systems. This reduces manual data entry, minimizes human errors, and enhances operational efficiency. Businesses can now process thousands of documents in minutes, improving compliance, record-keeping, and decision-making.",
     },
   ];
-
+ /**
+   * useEffect sets up a 5-second interval that increments the slide index.
+   * Once the index reaches the end of the slides array, it loops back to 0.
+   * Clearing the interval on unmount prevents memory leaks.
+   */
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prevSlide) => (prevSlide + 1) % slides.length);
@@ -43,6 +51,10 @@ export default function SlidesSection() {
           </div>
         </div>
       </div>
+       {/* 
+        Dot indicators allowing the user to manually switch slides.
+        They update the currentSlide state when clicked.
+      */}
       <div className="flex justify-center space-x-4 mt-4">
         {slides.map((_, index) => (
           <div
