@@ -82,7 +82,9 @@ def predict_frustration_gemini(text):
         script_path = Path(__file__).parent / 'gemini_predict.js'
         if not script_path.exists():
             logger.error(f"gemini_predict.js not found at {script_path}")
-            return 0.5
+            return 
+        
+        
         escaped_text = json.dumps(text)
         result = subprocess.check_output(
             ["node", str(script_path), escaped_text],
@@ -158,7 +160,7 @@ def fetch_and_classify_emails():
     Returns a tuple of (processed_emails, frustration_summary).
     """
     service = get_gmail_service()
-    results = service.users().messages().list(userId='me', q='is:unread', maxResults=2).execute()
+    results = service.users().messages().list(userId='me', q='is:unread', maxResults=4).execute()
     messages = results.get('messages', [])
     processed_emails = []
 
@@ -181,7 +183,7 @@ def fetch_and_classify_emails():
 
         score_custom = predict_frustration_custom(body)
         score_gemini = predict_frustration_gemini(body)
-        final_score = (0.5 * score_custom) + (0.5 * score_gemini)
+        final_score = (0.4 * score_custom) + (0.6 * score_gemini)
 
         # Log the scores for each email in the terminal
         logger.info(f"Email ID {msg['id']} - Custom Score: {score_custom:.3f}, Gemini Score: {score_gemini:.3f}, Combined Score: {final_score:.3f}")

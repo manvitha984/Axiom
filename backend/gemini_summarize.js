@@ -28,7 +28,6 @@ const {
       - Each point should be 1-2 lines maximum
       - Include only the most important information
       - No bullet points or special characters
-      - Maximum 10-15 points
       - No explanatory text or transitions
 
       Transcription:

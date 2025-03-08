@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
+import { FileVideo, FileText, Download, Globe, AlertCircle, Check, Loader } from 'lucide-react';
 
 export default function VideoSummarizer() {
-  // State variables to manage file input, PDF URL, loading state, error messages, summary text, and translation loading state
   const [file, setFile] = useState(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState('');
   const [translationLoading, setTranslationLoading] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // List of available languages for translation
   const languages = [
@@ -16,14 +17,38 @@ export default function VideoSummarizer() {
     { code: 'fr', name: 'French' },
     { code: 'de', name: 'German' },
   ];
-// Handle file change event
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setPdfUrl('');
     setError('');
     setSummary('');
   };
-  // Handle form submission to upload video and generate summary
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && droppedFile.type.startsWith('video/')) {
+      setFile(droppedFile);
+      setPdfUrl('');
+      setError('');
+      setSummary('');
+    } else {
+      setError('Please drop a valid video file');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) {
@@ -33,7 +58,7 @@ export default function VideoSummarizer() {
     setLoading(true);
     setError('');
     setSummary('');
-    // Create a new FormData object and append the selected file
+    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -76,7 +101,7 @@ export default function VideoSummarizer() {
       setLoading(false);
     }
   };
-  // Handle translation download request
+
   const handleDownloadTranslation = async (language) => {
     if (!summary) {
       setError("No summary text available for translation");
@@ -120,127 +145,193 @@ export default function VideoSummarizer() {
       setTranslationLoading(null);
     }
   };
+
   return (
-    <div className="min-h-screen bg-[#FFF8F8] py-0 px-4 sm:px-6 lg:px-8">
-    <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FE6059] to-red-500 mb-2">
-          Video Summarizer
-        </h1>
-        <p className="text-lg text-gray-600">Transform your videos into concise summaries</p>
-      </div>
-      
-        <div className="bg-white shadow-xl rounded-2xl p-8 mb-8 border border-[#FE6059]/10">
-          <form onSubmit={handleSubmit} className="mb-4">
-            <div className="mb-6">
-              <label className="block text-gray-700 text-lg font-semibold mb-3">
-                Select your video file
-              </label>
-              <input 
-                type="file" 
-                accept="video/*" 
-                onChange={handleFileChange} 
-                className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
-                  file:text-sm file:font-semibold file:bg-[#FE6059]/10 file:text-[#FE6059]
-                  hover:file:bg-[#FE6059]/20 w-full py-2 px-3 text-gray-700
-                  rounded-lg border-2 border-gray-200 hover:border-[#FE6059]/50
-                  focus:outline-none transition duration-200"
-                disabled={loading}
-              />
+    <div className="min-h-screen bg-gradient-to-br from-[#FFF8F8] to-[#FFF0F0] py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header Section */}
+        <div className="text-center mb-10">
+          <div className="flex justify-center mb-4">
+            <div className="bg-white p-3 rounded-full shadow-lg">
+              <FileVideo size={32} className="text-[#FE6059]" />
             </div>
-            <button 
-              type="submit" 
-              className={`w-full sm:w-auto px-6 py-3 rounded-lg shadow-lg
-                ${loading || !file 
-                  ? 'bg-gray-300 cursor-not-allowed' 
-                  : 'bg-[#FE6059] hover:bg-[#FE6059]/90 transform hover:-translate-y-0.5'
-                }
-                text-white font-semibold text-lg transition duration-200 ease-in-out`}
-              disabled={loading || !file}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing your video...
-                </span>
-              ) : "Generate Summary"}
-            </button>
-          </form>
+          </div>
+          <h1 className="text-3xl font-extrabold text-gray-800 sm:text-4xl mb-2">
+            Video Summarizer
+          </h1>
+          <div className="h-1 w-16 bg-gradient-to-r from-[#FE6059] to-rose-500 mx-auto rounded-full mb-4"></div>
+          <p className="mt-3 text-lg text-gray-600 max-w-2xl mx-auto">
+            Transform your videos into concise, readable summaries in multiple languages
+          </p>
         </div>
-      
-        {error && (
-          <div className="bg-red-50 border-l-4 border-[#FE6059] rounded-lg p-6 mb-6 shadow-md" role="alert">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-[#FE6059]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+
+        {/* Main Card */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 mb-8">
+          {/* File Upload Area */}
+          <div 
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`transition-all duration-300 p-8 border-b border-gray-100 ${
+              isDragging 
+                ? 'bg-[#FE6059]/5 border-[#FE6059] border-dashed' 
+                : 'hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex flex-col items-center justify-center text-center space-y-4">
+              <div className={`p-4 rounded-full ${
+                file 
+                  ? 'bg-green-100 text-green-600' 
+                  : 'bg-gray-100 text-gray-400'
+              }`}>
+                {file ? <Check size={28} /> : <FileVideo size={28} />}
               </div>
-              <div className="ml-4">
-                <p className="text-[#FE6059] font-medium">{error}</p>
+              
+              <div className="space-y-1">
+                <h3 className="text-lg font-medium text-gray-800">
+                  {file ? "Video Ready" : "Upload your video file"}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {file 
+                    ? file.name
+                    : "Drag and drop your file here, or click to select"
+                  }
+                </p>
+                {file && (
+                  <p className="text-xs text-gray-400">
+                    {(file.size / (1024 * 1024)).toFixed(2)} MB
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex space-x-4">
+                <label className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#FE6059] hover:bg-[#FE6059]/90 cursor-pointer transform hover:-translate-y-0.5 transition-all duration-200">
+                  <span>{file ? "Change Video" : "Select Video"}</span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileChange}
+                    className="sr-only"
+                    disabled={loading}
+                  />
+                </label>
+                
+                {file && (
+                  <button
+                    onClick={() => setFile(null)}
+                    className="px-4 py-2 border border-gray-200 rounded-md text-sm font-medium text-gray-500 hover:bg-gray-50 transition-all duration-200"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Action Button */}
+          <div className="p-6 bg-gray-50 flex justify-center">
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !file}
+              className={`flex items-center justify-center px-8 py-3 rounded-lg shadow-md transition-all duration-300
+                ${loading 
+                  ? 'bg-gray-300 cursor-not-allowed text-gray-500' 
+                  : !file
+                    ? 'bg-gray-200 cursor-not-allowed text-gray-500'
+                    : 'bg-gradient-to-r from-[#FE6059] to-rose-500 text-white hover:-translate-y-0.5 hover:shadow-lg'
+                }`}
+            >
+              {loading ? (
+                <>
+                  <Loader size={20} className="mr-2 animate-spin" />
+                  <span>Processing video...</span>
+                </>
+              ) : (
+                <>
+                  <FileText size={20} className="mr-2" />
+                  <span>Generate Summary</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        {/* Error Message */}
+        {error && (
+          <div className="mb-8 overflow-hidden rounded-lg shadow-md">
+            <div className="flex items-center p-4 bg-red-50 border-l-4 border-red-500">
+              <AlertCircle className="text-red-500 h-5 w-5 flex-shrink-0" />
+              <p className="ml-3 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
         )}
-      
+        
+        {/* Results Section */}
         {pdfUrl && (
-          <div className="bg-white shadow-xl rounded-2xl p-8 border border-[#FE6059]/10">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center">
-              <svg className="w-6 h-6 text-[#FE6059] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Summary Generated Successfully!
-            </h2>
-          
-            <div className="mb-8">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 transition-all duration-300">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center mb-4">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <Check size={20} className="text-green-600" />
+                </div>
+                <h2 className="ml-3 text-xl font-bold text-gray-800">
+                  Summary Generated Successfully
+                </h2>
+              </div>
+              
               <a 
                 href={pdfUrl} 
                 download="video_summary.pdf"
-                className="inline-flex items-center px-6 py-3 rounded-lg shadow-lg bg-[#FE6059] hover:bg-[#FE6059]/90 text-white font-semibold text-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                className="flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-lg shadow-md bg-[#FE6059] text-white hover:bg-[#FE6059]/90 transition-all duration-300 hover:-translate-y-0.5"
               >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
+                <Download size={18} className="mr-2" />
                 Download Original Summary
               </a>
             </div>
-          
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">
-                Available Translations
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            
+            {/* Translations Section */}
+            <div className="p-6 bg-gray-50">
+              <div className="flex items-center mb-4">
+                <Globe size={20} className="text-gray-700" />
+                <h3 className="ml-2 text-lg font-semibold text-gray-800">
+                  Available Translations
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {languages.slice(1).map((lang) => (
                   <button
                     key={lang.code}
                     onClick={() => handleDownloadTranslation(lang)}
-                    disabled={translationLoading !== null || !summary}
-                    className={`px-4 py-3 rounded-lg font-medium text-sm transition duration-200 ease-in-out
+                    disabled={translationLoading !== null}
+                    className={`flex items-center justify-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-300
                       ${translationLoading === lang.code
-                        ? 'bg-[#FE6059]/10 text-[#FE6059]'
-                        : 'bg-white border-2 border-[#FE6059]/20 text-[#FE6059] hover:bg-[#FE6059]/5 hover:border-[#FE6059]/30'
-                      } disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md`}
+                        ? 'bg-gray-100 text-gray-500'
+                        : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-[#FE6059]/30 hover:text-[#FE6059]'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {translationLoading === lang.code ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                      <>
+                        <Loader size={16} className="mr-2 animate-spin" />
+                        <span>Translating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download size={16} className="mr-2" />
                         {lang.name}
-                      </span>
-                    ) : lang.name}
+                      </>
+                    )}
                   </button>
                 ))}
               </div>
+              
+              <p className="mt-4 text-xs text-gray-500 text-center">
+                Translations are generated on demand and may take a few moments to process.
+              </p>
             </div>
           </div>
         )}
       </div>
     </div>
   );
-  
 }

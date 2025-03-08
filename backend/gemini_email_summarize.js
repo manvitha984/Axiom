@@ -16,7 +16,7 @@ const generationConfig = {
 
 async function generateEmailSummary(text) {
   try {
-    const prompt = `You will receive user complaints via emails, video transcriptions, or text. Extract and return a single-line summary highlighting the main reasons for dissatisfaction. Keep it direct, without additional explanations or formatting beyond bolding the negatively impacted aspects.\nExample Input:\n\"I have been trying to reset my password for the past hour, but the link keeps expiring. Your support team is not responding, and this is really frustrating!\"\n\nExample Output:\nPassword reset issues and unresponsive support team caused frustration.\n\nEmails:\n${text}`;
+    const prompt = `You will receive user complaints via emails, video transcriptions, or text. Extract and return the summary stating the main reasons for dissatisfaction. Keep it direct, without additional explanations or formatting beyond bolding the negatively impacted aspects.\nExample Input:\n\"I have been trying to reset my password for the past hour, but the link keeps expiring. Your support team is not responding, and this is really frustrating!\"\n\nExample Output:\nPassword reset issues and unresponsive support team caused frustration.\n\nEmails:\n${text}`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
