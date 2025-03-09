@@ -26,7 +26,7 @@ const handleLogout = () => {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Video Summarizer", href: "/videoSummarizer", icon: Video },
-  { name: "InvoiceDataExtractor", href: "/invoiceDataExtractor", icon: FileSpreadsheet },
+  { name: "Invoice Data Extractor", href: "/invoiceDataExtractor", icon: FileSpreadsheet },
   { name: "ChatBot", href: "/chatBox", icon: MessageSquare },
   { name: "Logout", href: "/login", onClick: handleLogout, icon: LogOut } 
 ];

@@ -9,6 +9,8 @@ from pathlib import Path
 from flask import Flask, Blueprint, request, jsonify, send_file, current_app
 from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
+import pandas as pd
+import PyPDF2
 
 # Google API imports
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -57,34 +59,112 @@ def get_gmail_service():
     service = build('gmail', 'v1', credentials=creds)
     return service
 
+
+# Extracting columns from a PDF file
 def get_pdf_columns_for_file(pdf_path):
     """
-    Reads the first page of the PDF file using Camelot and returns a list of column headers.
-    Assumes the first row is the header row.
+    Reads all pages of the PDF file using Camelot and returns a list of column headers.
+    Assumes the first row of the first table contains headers.
     """
-    tables = camelot.read_pdf(pdf_path, pages='1', flavor='stream')
+    # Get total number of pages
+    import PyPDF2
+    with open(pdf_path, 'rb') as pdf_file:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        total_pages = len(pdf_reader.pages)
+
+    # Read all pages
+    tables = camelot.read_pdf(pdf_path, pages=f'1-{total_pages}', flavor='stream')
     if not tables or len(tables) == 0:
         raise ValueError("No table found in the PDF.")
+    
+    # Get headers from first table
     df = tables[0].df
-    return df.iloc[0].tolist()
+    headers = df.iloc[0].tolist()
+    return headers
 
+
+# Extracting selected columns from a PDF file
 def extract_selected_columns_for_file(pdf_path, output_excel_path, selected_columns):
     """
-    Reads the PDF file, uses its first row as header, filters the DataFrame by the selected columns,
-    and writes the resulting data to an Excel file.
+    Processes a PDF file to extract user-selected columns and writes them to an Excel file.
+    Handles multi-page PDFs by combining all tables.
     """
-    tables = camelot.read_pdf(pdf_path, pages='1', flavor='stream')
+    # Get total number of pages
+    with open(pdf_path, 'rb') as pdf_file:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        total_pages = len(pdf_reader.pages)
+
+    # Read all pages
+    tables = camelot.read_pdf(pdf_path, pages=f'1-{total_pages}', flavor='stream')
     if not tables or len(tables) == 0:
         raise ValueError("No table found in the PDF.")
-    df = tables[0].df
-    df.columns = df.iloc[0]
-    df = df.drop(df.index[0]).reset_index(drop=True)
-    filtered_columns = [col for col in selected_columns if col in df.columns]
+    
+    # Combine all tables into one DataFrame
+    all_data = []
+    for table in tables:
+        df = table.df
+        if len(all_data) == 0:
+            # Use first row of first table as headers
+            headers = df.iloc[0]
+            df = df.iloc[1:]  # Remove header row
+        all_data.append(df)
+    
+    # Combine all tables
+    combined_df = pd.concat(all_data, ignore_index=True)
+    combined_df.columns = headers
+
+    # Filter and export selected columns
+    filtered_columns = [col for col in selected_columns if col in combined_df.columns]
     if not filtered_columns:
         raise ValueError("None of the selected columns exist in the PDF data.")
-    filtered_df = df[filtered_columns]
+    filtered_df = combined_df[filtered_columns]
     filtered_df.to_excel(output_excel_path, index=False)
 
+
+# Extracting selected columns from the cached PDF
+def extract_selected_columns_from_cache(output_excel_path, selected_columns, index=0):
+    """
+    Processes all pages of the cached PDF and extracts user-selected columns.
+    """
+    if index >= len(pdf_cache['pdfs']):
+        raise ValueError(f"No cached PDF found at index {index}.")
+    
+    pdf_bytes = pdf_cache['pdfs'][index]['content']
+    
+    # Get total pages
+    with io.BytesIO(pdf_bytes) as pdf_stream:
+        pdf_reader = PyPDF2.PdfReader(pdf_stream)
+        total_pages = len(pdf_reader.pages)
+
+    # Read all pages
+    with io.BytesIO(pdf_bytes) as pdf_stream:
+        # Changed from pages='1' to read all pages
+        tables = camelot.read_pdf(pdf_stream, pages=f'1-{total_pages}', flavor='stream')
+        if not tables or len(tables) == 0:
+            raise ValueError("No table found in the cached PDF.")
+        
+        # Combine all tables into one DataFrame
+        all_data = []
+        for table in tables:
+            df = table.df
+            if len(all_data) == 0:
+                # Use first row of first table as headers
+                headers = df.iloc[0]
+                df = df.iloc[1:]  # Remove header row
+            all_data.append(df)
+        
+        # Combine all tables
+        combined_df = pd.concat(all_data, ignore_index=True)
+        combined_df.columns = headers
+
+        # Filter and export selected columns
+        filtered_columns = [col for col in selected_columns if col in combined_df.columns]
+        if not filtered_columns:
+            raise ValueError("None of the selected columns exist in the PDF data.")
+        filtered_df = combined_df[filtered_columns]
+        filtered_df.to_excel(output_excel_path, index=False)
+        
+#Fetching PDFs from Gmail
 def fetch_and_cache_pdfs():
     """
     Fetches PDFs from Gmail (emails with 'invoice' in the subject and PDF attachments)
@@ -127,39 +207,31 @@ def fetch_and_cache_pdfs():
                         })
         pdf_cache['subjects'].append(subject_line)
 
+#gettings columns from the first page of the cached PDF
 def get_pdf_columns_from_cache(index=0):
     """
-    Reads the first page of the cached PDF (by index) and returns detected column headers.
+    Reads all pages of the cached PDF and returns column headers.
     """
     if index >= len(pdf_cache['pdfs']):
         raise ValueError(f"No cached PDF found at index {index}.")
+    
     pdf_bytes = pdf_cache['pdfs'][index]['content']
+    
+    # Get total pages
     with io.BytesIO(pdf_bytes) as pdf_stream:
-        tables = camelot.read_pdf(pdf_stream, pages='1', flavor='stream')
+        pdf_reader = PyPDF2.PdfReader(pdf_stream)
+        total_pages = len(pdf_reader.pages)
+    
+    # Read all pages
+    with io.BytesIO(pdf_bytes) as pdf_stream:
+        tables = camelot.read_pdf(pdf_stream, pages=f'1-{total_pages}', flavor='stream')
         if not tables or len(tables) == 0:
             raise ValueError("No table found in the cached PDF.")
         df = tables[0].df
         return df.iloc[0].tolist()
+    
 
-def extract_selected_columns_from_cache(output_excel_path, selected_columns, index=0):
-    """
-    Processes the cached PDF (by index) to extract user-selected columns and writes them to an Excel file.
-    """
-    if index >= len(pdf_cache['pdfs']):
-        raise ValueError(f"No cached PDF found at index {index}.")
-    pdf_bytes = pdf_cache['pdfs'][index]['content']
-    with io.BytesIO(pdf_bytes) as pdf_stream:
-        tables = camelot.read_pdf(pdf_stream, pages='1', flavor='stream')
-        if not tables or len(tables) == 0:
-            raise ValueError("No table found in the cached PDF.")
-        df = tables[0].df
-        df.columns = df.iloc[0]
-        df = df.drop(df.index[0]).reset_index(drop=True)
-        filtered_columns = [col for col in selected_columns if col in df.columns]
-        if not filtered_columns:
-            raise ValueError("None of the selected columns exist in the PDF data.")
-        filtered_df = df[filtered_columns]
-        filtered_df.to_excel(output_excel_path, index=False)
+
 
 ######################################
 # Flask API Endpoint Definition

@@ -152,6 +152,7 @@ class TestEmailClassifier(unittest.TestCase):
         self.assertEqual(X_train_tfidf.shape[0], 2)
         self.assertEqual(X_val_tfidf.shape[0], 1)
 
+
 # ---------------------------
 # Main Execution
 # ---------------------------

@@ -1,30 +1,31 @@
 import os
 import base64
 import json
-import re #For regular expressions(used for text processing)
+import re  # For regular expressions (used for text processing)
 import logging
-import subprocess #For running external commands(like Node.js scripts)
+import subprocess  # For running external commands (like Node.js scripts)
 from pathlib import Path
-import pickle #For loading the model and vectorizer
+import pickle  # For loading the model and vectorizer
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from nltk.corpus import stopwords # For stop words (common words to ignore in text analysis)
-from nltk.stem import WordNetLemmatizer # For stop words (common words to ignore in text analysis)
+from nltk.corpus import stopwords  # For stop words (common words to ignore in text analysis)
+from nltk.stem import WordNetLemmatizer  # For lemmatizing words
 
 # Set up logging configuration to see debug/info messages in the terminal
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Load the frustration prediction model and TF-IDF vectorizer
-with open(os.path.join('model', 'model.pkl'), 'rb') as f: # Open the model file in binary read mode
-    model = pickle.load(f) # Load the model from the file using pickle
+# NOTE: In unit tests, these globals can be temporarily replaced with dummy objects.
+with open(os.path.join('model', 'model.pkl'), 'rb') as f:  # Open the model file in binary read mode
+    model = pickle.load(f)  # Load the model from the file using pickle
 with open(os.path.join('model', 'tfidf.pkl'), 'rb') as f:  # Open the TF-IDF vectorizer file in binary read mode
     tfidf = pickle.load(f)  # Load the TF-IDF vectorizer from the file using pickle
 
- # Define the required Gmail API scope
+# Define the required Gmail API scope
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-# Gmail API service function
+# ==================== Gmail API Setup ====================
 def get_gmail_service():
     """
     Authenticates with Gmail and returns a Gmail API service object.
@@ -50,19 +51,24 @@ def get_gmail_service():
     service = build('gmail', 'v1', credentials=creds)
     return service
 
-
-# Text preprocessing function
+# ==================== Text Preprocessing ====================
 def preprocess_text(text):
+    """
+    Preprocesses input text by removing HTML tags, URLs, non-alphabet characters,
+    converting to lowercase, tokenizing, lemmatizing, and removing stopwords.
+    """
+    # Remove HTML tags, URLs, and non-alphabet characters
     text = re.sub(r'<.*?>|http\S+|[^a-zA-Z\s]', '', text)
     tokens = text.lower().split()
-    # Lemmatize the tokens and remove stopwords
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stopwords.words('english')]
     return ' '.join(tokens)
 
-
-# Custom model prediction function
+# ==================== Custom Model Prediction ====================
 def predict_frustration_custom(text):
+    """
+    Predicts the probability that the text is frustrated using a custom model.
+    """
     try:
         cleaned_text = preprocess_text(text)
         # Transform the cleaned text using the TF-IDF vectorizer
@@ -75,16 +81,19 @@ def predict_frustration_custom(text):
         logger.error(f"Custom model error: {str(e)}")
         return 0.5
 
-
-# Gemini model prediction function
+# ==================== Gemini Model Prediction ====================
 def predict_frustration_gemini(text):
+    """
+    Predicts the probability that the text is frustrated using the Gemini model.
+    This function calls a Node.js script (gemini_predict.js) and parses its JSON output.
+    """
     try:
         script_path = Path(__file__).parent / 'gemini_predict.js'
         if not script_path.exists():
             logger.error(f"gemini_predict.js not found at {script_path}")
-            return 
-        
-        
+            return 0.5
+
+        # Escape text for JSON safely
         escaped_text = json.dumps(text)
         result = subprocess.check_output(
             ["node", str(script_path), escaped_text],
@@ -106,9 +115,11 @@ def predict_frustration_gemini(text):
         logger.error(f"Gemini prediction error: {str(e)}")
         return 0.5
 
-
-# Function to summarize emails using the Gemini API
+# ==================== Email Processing ====================
 def summarize_emails_with_gemini(text):
+    """
+    Summarizes emails using the Gemini API via a Node.js script (gemini_email_summarize.js).
+    """
     try:
         script_path = Path(__file__).parent / 'gemini_email_summarize.js'
         if not script_path.exists():
@@ -134,7 +145,7 @@ def summarize_emails_with_gemini(text):
         logger.error(f"Error in summarize_emails_with_gemini: {str(e)}")
         return f"Summary error: {str(e)}"
 
-# Function to summarize frustration reasons
+
 def summarize_frustration_reasons(emails):
     """
     Given a list of email dictionaries, generate a summary of the reasons for frustration.
@@ -144,7 +155,7 @@ def summarize_frustration_reasons(emails):
         return "No frustrated emails found."
     combined_text = "\n".join(frustrated_emails)
     # Limit the text to avoid exceeding token limits
-    max_length = 10000 
+    max_length = 10000
     if len(combined_text) > max_length:
         combined_text = combined_text[:max_length]
         logger.warning(f"Truncated combined text to {max_length} characters.")
@@ -152,7 +163,6 @@ def summarize_frustration_reasons(emails):
     return summary
 
 
-# Function to fetch and classify emails
 def fetch_and_classify_emails():
     """
     Retrieves unread emails, classifies each as frustrated or not using both custom and Gemini predictions,
@@ -172,6 +182,7 @@ def fetch_and_classify_emails():
         date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
         body = ''
 
+        # Check if the email has parts; if not, process the plain body.
         if 'parts' in msg_data.get('payload', {}):
             for part in msg_data['payload']['parts']:
                 if part['mimeType'] == 'text/plain':
@@ -185,7 +196,6 @@ def fetch_and_classify_emails():
         score_gemini = predict_frustration_gemini(body)
         final_score = (0.4 * score_custom) + (0.6 * score_gemini)
 
-        # Log the scores for each email in the terminal
         logger.info(f"Email ID {msg['id']} - Custom Score: {score_custom:.3f}, Gemini Score: {score_gemini:.3f}, Combined Score: {final_score:.3f}")
 
         email_data = {
@@ -203,3 +213,145 @@ def fetch_and_classify_emails():
 
     summary = summarize_frustration_reasons(processed_emails)
     return processed_emails, summary
+
+
+# ==================== Unit Tests ====================
+import unittest
+from unittest.mock import patch, MagicMock
+
+class TestEmailClassifier(unittest.TestCase):
+    def test_preprocess_text(self):
+        """
+        Test that HTML tags, URLs, non-alphabetic characters are removed,
+        and that stopwords are filtered and words are lemmatized.
+        """
+        input_text = "<p>This is a test email! Check out http://example.com. Running tests?</p>"
+        # Expected processing:
+        # After regex and lowering: "this is a test email check out  running tests"
+        # After removing stopwords (e.g., this, is, a, out) and lemmatizing:
+        # Expected tokens might be: ["test", "email", "check", "running", "test"]
+        expected = "test email check running test"
+        processed = preprocess_text(input_text)
+        self.assertEqual(processed, expected)
+
+    def test_predict_frustration_custom(self):
+        """
+        Test the custom prediction function using dummy model and tfidf transformer.
+        """
+        # Define dummy objects for the model and tfidf vectorizer.
+        class DummyModel:
+            def predict_proba(self, features):
+                return [[0.3, 0.7]]
+        class DummyTfidf:
+            def transform(self, texts):
+                # Return dummy features (the actual content is not used)
+                return texts
+
+        global model, tfidf
+        original_model = model
+        original_tfidf = tfidf
+        try:
+            model = DummyModel()
+            tfidf = DummyTfidf()
+            # Since dummy returns 0.7 for frustrated probability, we expect that.
+            result = predict_frustration_custom("Dummy text")
+            self.assertAlmostEqual(result, 0.7)
+        finally:
+            # Restore the original objects
+            model = original_model
+            tfidf = original_tfidf
+
+    @patch('subprocess.check_output')
+    def test_predict_frustration_gemini(self, mock_check_output):
+        """
+        Test Gemini prediction by patching subprocess.check_output to return a dummy JSON string.
+        """
+        # Simulate node script output containing JSON data.
+        dummy_output = '{"confidence": 0.8}'
+        mock_check_output.return_value = dummy_output
+        # Also, patch Path.exists to always return True for the script.
+        with patch.object(Path, "exists", return_value=True):
+            result = predict_frustration_gemini("Dummy text")
+            self.assertAlmostEqual(result, 0.8)
+
+    @patch('subprocess.check_output')
+    def test_summarize_emails_with_gemini(self, mock_check_output):
+        """
+        Test email summarization using Gemini by patching subprocess.check_output.
+        """
+        dummy_summary = {"summary": "Test summary generated."}
+        mock_check_output.return_value = json.dumps(dummy_summary)
+        with patch.object(Path, "exists", return_value=True):
+            summary = summarize_emails_with_gemini("Some long text")
+            self.assertEqual(summary, "Test summary generated.")
+
+    def test_summarize_frustration_reasons(self):
+        """
+        Test the summary generation function when frustrated emails are present.
+        """
+        emails = [
+            {'body': 'First frustrated email body', 'is_frustrated': True},
+            {'body': 'Non-frustrated email body', 'is_frustrated': False},
+            {'body': 'Second frustrated email body', 'is_frustrated': True},
+        ]
+        # Patch the Gemini summarization function to return a fake summary.
+        with patch('__main__.summarize_emails_with_gemini', return_value="Fake summary"):
+            summary = summarize_frustration_reasons(emails)
+            self.assertEqual(summary, "Fake summary")
+
+    @patch('__main__.summarize_emails_with_gemini', return_value="Fake summary")
+    @patch('__main__.predict_frustration_gemini', return_value=0.6)
+    @patch('__main__.predict_frustration_custom', return_value=0.6)
+    @patch('__main__.get_gmail_service')
+    def test_fetch_and_classify_emails(self, mock_get_service, mock_custom, mock_gemini, mock_summarize):
+        """
+        Test fetching and classifying emails by simulating the Gmail API responses.
+        """
+        # Create a fake Gmail service with chained method calls.
+        fake_service = MagicMock()
+        # Fake list result with one message
+        fake_list_result = {'messages': [{'id': '1'}]}
+        fake_service.users.return_value.messages.return_value.list.return_value.execute.return_value = fake_list_result
+
+        # Create fake email message data.
+        fake_message_data = {
+            'id': '1',
+            'payload': {
+                'headers': [
+                    {'name': 'Subject', 'value': 'Test Subject'},
+                    {'name': 'From', 'value': 'sender@example.com'},
+                    {'name': 'Date', 'value': 'Mon, 01 Jan 2020 00:00:00 +0000'},
+                ],
+                # Provide body data as base64-encoded text
+                'body': {'data': base64.urlsafe_b64encode("Test email body".encode('utf-8')).decode('utf-8')}
+            }
+        }
+        fake_service.users.return_value.messages.return_value.get.return_value.execute.return_value = fake_message_data
+
+        mock_get_service.return_value = fake_service
+
+        processed_emails, summary = fetch_and_classify_emails()
+        # Check that one email is processed and that the classification is as expected.
+        self.assertEqual(len(processed_emails), 1)
+        self.assertTrue(processed_emails[0]['is_frustrated'])
+        self.assertEqual(summary, "Fake summary")
+
+
+# ==================== Main Execution ====================
+if __name__ == '__main__':
+    import sys
+    # If "test" is passed as a command-line argument, run unit tests.
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        # Remove the test argument before running unittest
+        sys.argv.pop(1)
+        unittest.main()
+    else:
+        try:
+            emails, summary = fetch_and_classify_emails()
+            print("Processed Emails:")
+            for email in emails:
+                print(email)
+            print("\nSummary of Frustration Reasons:")
+            print(summary)
+        except Exception as e:
+            logger.error(f"Error running main functionality: {str(e)}")

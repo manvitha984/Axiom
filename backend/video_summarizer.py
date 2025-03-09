@@ -181,6 +181,7 @@ def read_pdf_content(pdf_path):
         logger.error(f"Error reading PDF: {e}")
         raise
 
+# Generate a summary PDF file
 def generate_summary_pdf(summary_text, title="Video Summary"):
     """Generate a PDF file containing the summary.
     Uses ReportLab to create the PDF document."""
