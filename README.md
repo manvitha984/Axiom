@@ -32,7 +32,7 @@ This project automates various business processes using AI, reducing manual effo
 
 🔹 **Technologies Used**: Google Generative AI (Gemini)
 
-### **Demo:** [https://drive.google.com/file/d/1DOP9mGKBkDkzn1UlFG47bkVxw0bkx4Wh/view?usp=sharing]
+### **Demo:** [https://drive.google.com/file/d/1xdt2lxc7zBpmzTT6IJNNuidsLG9IyWjU/view?usp=drive_link]
 
 
 ## Workflow
